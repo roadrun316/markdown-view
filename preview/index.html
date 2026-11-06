@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markdown View</title>
+<!-- file:// 로 열리므로 아이콘 파일 대신 SVG 를 그대로 넣는다 (Markdown 마크: M + 아래 화살표) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23172024'/%3E%3Cpath d='M12 44V20l10 12 10-12v24' fill='none' stroke='%23e2e8ea' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M46 19v15' stroke='%235cbbd8' stroke-width='6' stroke-linecap='round'/%3E%3Cpath d='M37 32h18l-9 13z' fill='%235cbbd8' stroke='%235cbbd8' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" id="hljsLight" media="(prefers-color-scheme: light)" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<link rel="stylesheet" id="hljsDark" media="(prefers-color-scheme: dark)" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/powershell.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dos.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/kotlin.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/gradle.min.js"></script>
+<style>
+  /* 색 토큰: Artifact 페이지와 같은 팔레트 (바탕 ground 위에 종이 paper 카드) */
+  :root {
+    --ground: #F3F5F4; --paper: #FFFFFF; --ink: #172024; --muted: #56646B; --rule: #D5DCDE; --soft: #E7ECEC;
+    --accent: #0B6A86; --accent-soft: #DCEEF3; --amber: #A8660F; --amber-soft: #F6EAD7;
+    --warn: #B3261E; --warn-soft: #F8E1DF; --ok: #2E7D4F; --ok-soft: #DEF0E4; --code-bg: #EEF2F2;
+    --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color-scheme: light;
+  }
+  /* data-theme="light" 이면 다크 환경에서도 라이트 색 (HTML 복사가 잠시 켠다) */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #11171A; --paper: #182025; --ink: #E2E8EA; --muted: #97A5AB; --rule: #2C373C; --soft: #1F292E;
+      --accent: #5CBBD8; --accent-soft: #173440; --amber: #E0A04A; --amber-soft: #3A2B16;
+      --warn: #F08A80; --warn-soft: #3D1F1C; --ok: #7CCB99; --ok-soft: #1B3326; --code-bg: #1D272C;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ground); }
+  body { display: flex; color: var(--ink); font-family: var(--sans); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* 왼쪽 두 칸: 폴더·세션 트리, 결과 목록 */
+  .col { flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--rule); min-width: 0; background: var(--paper); }
+  #tree { width: 300px; }
+  #answers { width: 270px; background: var(--ground); }
+  .col h1 { display: flex; align-items: baseline; gap: 6px; margin: 0; padding: 14px 14px 10px; font: 600 11.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--rule); }
+  .col h1 .n { font-weight: 400; margin-left: auto; letter-spacing: 0; text-transform: none; }
+  .col input[type=search] { margin: 10px 10px 4px; padding: 6px 9px; border: 1px solid var(--rule); border-radius: 6px; background: var(--ground); color: inherit; font: 12.5px var(--sans); }
+  .list { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+  .list button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px 14px; cursor: pointer; color: inherit; font: inherit; border-left: 3px solid transparent; }
+  .list button:hover { background: var(--soft); }
+  .list button.on { background: var(--accent-soft); border-left-color: var(--accent); }
+  .list button.all { font-weight: 600; border-bottom: 1px solid var(--rule); }
+  .list button.folder { position: relative; padding-left: 28px; }
+  .list button.folder .s { font-weight: 600; }
+  .list button.folder::before { content: '▸'; position: absolute; left: 12px; top: 9px; font-size: 11px; color: var(--muted); }
+  .list button.folder.open::before { content: '▾'; }
+  .list button.sess { padding-left: 30px; }
+  .list .group { border-left: 1px solid var(--rule); margin-left: 17px; }
+  .list .group button.sess { padding-left: 14px; }
+  #answerList .t { color: var(--accent); }
+  .t { font: 11px var(--mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .s { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .s2 { font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 5px; vertical-align: 1px; }
+  .none { padding: 12px 14px; font-size: 12px; color: var(--muted); }
+  #answerList .q { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #answerList .q + .s2 { color: var(--muted); font-size: 12px; }
+
+  /* 본문 */
+  main { flex: 1; overflow-y: auto; min-width: 0; }
+  .bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 12px; align-items: center; padding: 8px 32px; font-size: 12px; color: var(--muted); background: var(--ground); border-bottom: 1px solid var(--rule); }
+  #meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 11.5px; }
+  .bar .r { margin-left: auto; display: flex; gap: 10px; align-items: center; flex: none; }
+  .bar label { cursor: pointer; }
+  .btn { font: 500 12.5px var(--sans); color: var(--accent); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn:disabled { color: var(--muted); cursor: progress; }
+
+  .doc { max-width: 920px; margin: 0 auto; padding: 40px 32px 72px; font-size: 15px; line-height: 1.7; overflow-wrap: break-word; }
+  .doc :is(p, ul, ol, pre, table, blockquote, figure, h1, h2, h3, h4, h5, h6, hr, details) { margin: 0; }
+  .doc :is(.flow, blockquote, .fbody, .panel, details) > * + * { margin-top: 12px; }
+  .doc.flow > * + *, .doc .sec > * + * { margin-top: 16px; }
+  .doc.flow > .sec { margin-top: 52px; scroll-margin-top: 52px; }
+  .doc.flow > .doc-head + .sec { margin-top: 44px; }
+  .doc .sec > h3, .doc.flow > h3 { margin-top: 28px; }
+  .doc h1, .doc h2, .doc h3, .doc h4 { line-height: 1.3; text-wrap: balance; }
+  .doc h1 { font-size: clamp(26px, 3.6vw, 34px); font-weight: 700; letter-spacing: -0.01em; }
+  .doc h2 { font-size: 22px; font-weight: 700; }
+  .doc h3 { font-size: 16px; font-weight: 600; }
+  .doc :is(h4, h5, h6) { font-size: 14px; font-weight: 600; color: var(--muted); }
+  .doc.flow > h2 { margin-top: 44px; }
+  .doc p, .doc li { max-width: 72ch; }
+  .doc a { color: var(--accent); }
+  .doc strong { font-weight: 600; }
+  .doc ul, .doc ol { padding-left: 22px; }
+  .doc li > * + * { margin-top: 4px; }
+  .doc li + li { margin-top: 4px; }
+  .doc li::marker { color: var(--muted); }
+  .doc li:has(> input[type=checkbox]) { list-style: none; margin-left: -1.3em; }
+  .doc hr { border: 0; border-top: 1px solid var(--rule); margin-block: 32px; }
+  .doc img { max-width: 100%; }
+  .doc blockquote { border-left: 3px solid var(--rule); padding: 2px 0 2px 14px; color: var(--muted); }
+  .doc :not(pre) > code { font-family: var(--mono); font-size: 0.88em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; word-break: break-word; }
+  .doc pre { background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; }
+  .doc pre code, .doc pre code.hljs { font-family: inherit; background: transparent; padding: 0; }
+  .doc kbd { font: 11.5px var(--mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--paper); }
+  .doc details { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 16px; }
+  .doc summary { cursor: pointer; font-weight: 600; }
+  .empty { color: var(--muted); }
+
+  /* 표: 테두리 상자 */
+  .tbl { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); }
+  .tbl table { border-collapse: collapse; width: 100%; font-size: 13.5px; line-height: 1.55; }
+  .tbl th, .tbl td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .tbl th { font-weight: 600; font-size: 12.5px; color: var(--muted); background: var(--soft); white-space: nowrap; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl td.mono { font-family: var(--mono); font-size: 12.5px; }
+  .tbl td.mono > code { background: none; padding: 0; font-size: inherit; }
+
+  /* 머리말: eyebrow · 제목 · lede · 목차 */
+  .doc-head { display: grid; gap: 14px; }
+  .doc .doc-head > * + * { margin-top: 0; }
+  .eyebrow { font: 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .lede { font-size: 17px; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; border-top: 1px solid var(--rule); padding-top: 14px; }
+  nav.toc a { color: var(--muted); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+
+  /* 질의 상자 */
+  .query { margin: 0 0 32px; padding: 10px 14px; background: var(--paper); border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 8px; }
+  .query .ql { font: 600 11px var(--mono); letter-spacing: 0.08em; color: var(--accent); margin-bottom: 4px; }
+  .query .qt { font-size: 14px; white-space: pre-wrap; word-break: break-word; max-height: 16em; overflow-y: auto; }
+
+  /* 칩 */
+  .chip { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 1px 9px; border-radius: 999px; white-space: nowrap; vertical-align: 1px; line-height: 1.6; }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); }
+  .chip.amber { background: var(--amber-soft); color: var(--amber); }
+  .chip.accent { background: var(--accent-soft); color: var(--accent); }
+  .chip.muted { background: var(--soft); color: var(--muted); }
+
+  /* > [!주의] 제목 → 판단 카드 */
+  .findings { display: grid; gap: 10px; }
+  .doc .findings > * + * { margin-top: 0; }
+  .finding { display: grid; grid-template-columns: 92px 1fr; gap: 14px; align-items: start; padding: 14px 16px; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; }
+  .finding .chip { justify-self: start; margin-top: 2px; }
+  .finding .ftitle { font-size: 15px; }
+  .finding .fbody { font-size: 14px; color: var(--muted); min-width: 0; }
+  .finding .fbody > .ftitle { color: var(--ink); }
+  .finding .fbody > .ftitle + * { margin-top: 4px; }
+  @media (max-width: 560px) { .finding { grid-template-columns: 1fr; gap: 6px; } }
+
+  /* > [!DO] / > [!DONT] → 두 칸 패널 */
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .doc .split > * + * { margin-top: 0; }
+  .panel { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; font-size: 14px; align-content: start; }
+  .panel.do { border-top: 3px solid var(--accent); }
+  .panel.dont { border-top: 3px solid var(--rule); }
+  .panel ul, .panel ol { padding-left: 18px; }
+
+  /* 도식 */
+  figure.fig { display: grid; gap: 10px; }
+  .doc figure.fig > * + * { margin-top: 0; }
+  .fig-box { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 18px 14px; overflow-x: auto; text-align: center; }
+  .fig-box svg { max-width: 100%; height: auto; }
+  .fig-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .fig-status { font-size: 12.5px; color: var(--muted); }
+  figure.fig figcaption { font-size: 13px; color: var(--muted); max-width: 72ch; }
+  .fig-fallback { display: grid; gap: 6px; }
+  .fig-fallback img { border: 1px solid var(--rule); border-radius: 6px; background: #fff; max-width: 100%; }
+  .mermaid-err { font-size: 12px; color: var(--warn); }
+
+  @media (max-width: 1300px) { #tree { width: 260px; } #answers { width: 230px; } }
+  @media (max-width: 900px) { #tree { display: none; } #answers { width: 200px; } .doc, .bar { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<section class="col" id="tree">
+  <h1>폴더 · 세션<span class="n" id="treeCount"></span></h1>
+  <input type="search" id="sessionFilter" placeholder="세션 제목·응답 검색">
+  <div class="list" id="treeList"></div>
+</section>
+<section class="col" id="answers">
+  <h1>결과<span class="n" id="answerCount"></span></h1>
+  <div class="list" id="answerList"></div>
+</section>
+<main>
+  <div class="bar">
+    <span id="meta">대기 중</span>
+    <span class="r">
+      <button id="publish" class="btn" type="button" title="이 응답을 Artifact 페이지로 발행하는 /md publish 명령을 복사합니다. 아무 Claude Code 세션의 입력창에 붙여넣으세요.">아티팩트로 발행</button>
+      <button id="copyHtml" class="btn" type="button" title="서식을 살린 HTML 로 복사합니다. Confluence·Notion·메일·Word 같은 편집기에 붙이면 표·카드·도식(이미지)이 그대로 들어가고, 코드 편집기에 붙이면 HTML 소스가 들어갑니다.">HTML 복사</button>
+      <button id="copy" class="btn" type="button">원문 복사</button>
+      <label><input type="checkbox" id="follow" checked> 최신 따라가기</label>
+    </span>
+  </div>
+  <article class="doc flow" id="body"><p class="empty">아직 Claude 응답이 없습니다.</p></article>
+</main>
+<script>
+  // 상태: 모든 세션 기록, 현재 고른 폴더/세션/결과
+  const records = new Map()      // id -> 세션 기록 (sessions/<id>.js)
+  const wanted = new Map()       // id -> index.js 가 말한 mtime
+  const loaded = new Map()       // id -> 읽어 들인 mtime
+  let order = []                 // index.js 의 세션 순서 (최근 것 먼저)
+  let lastFocusAt = null, pendingFocus = null
+  const ALL = '*'
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('mdhub.sel') || '{}') } catch { return {} } })()
+  let folder = saved.folder || ALL, session = saved.session || ALL, current = null, shown = null
+  // 펼친 폴더. 처음이면 고른 폴더만 펼친다.
+  const expanded = new Set(Array.isArray(saved.expanded) ? saved.expanded : folder === ALL ? [] : [folder])
+  const follow = document.getElementById('follow')
+  const filter = document.getElementById('sessionFilter')
+
+  const $ = id => document.getElementById(id)
+  const folderKey = root => (root || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const baseName = root => (root || '').split(/[\\/]/).filter(Boolean).pop() || root || '(알 수 없음)'
+  const pad = n => String(n).padStart(2, '0')
+  const when = at => {
+    const d = new Date(at), now = new Date()
+    const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+    return d.toDateString() === now.toDateString() ? `${time}:${pad(d.getSeconds())}` : `${d.getMonth() + 1}/${d.getDate()} ${time}`
+  }
+  const fullDate = at => { const d = new Date(at); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
+  const firstLine = text => (text.split('\n').find(l => l.trim()) || '').replace(/^[#>\-*\s`|]+/, '').replace(/^\[![^\]]+\]\s*/, '').slice(0, 120)
+  const titleOf = r => r.label || '(제목 없음)'
+  const keyOf = a => `${a.sid}:${a.turnId}:${a.at}`
+  const remember = () => { try { localStorage.setItem('mdhub.sel', JSON.stringify({ folder, session, expanded: [...expanded] })) } catch {} }
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+
+  // 세션 목록 순서대로 기록을 돌려준다
+  function sessionsIn(fk) {
+    return order.map(id => records.get(id)).filter(r => r && (fk === ALL || folderKey(r.root) === fk))
+  }
+  function folders() {
+    const map = new Map()
+    for (const r of sessionsIn(ALL)) {
+      const k = folderKey(r.root)
+      const f = map.get(k) || { key: k, root: r.root, sessions: 0, answers: 0, updatedAt: 0, live: false }
+      f.sessions++; f.answers += r.answers.length
+      f.updatedAt = Math.max(f.updatedAt, r.updatedAt); f.live = f.live || !r.endedAt
+      map.set(k, f)
+    }
+    return [...map.values()].sort((a, b) => b.updatedAt - a.updatedAt)
+  }
+  function matches(r, q) {
+    if (!q) return true
+    q = q.toLowerCase()
+    return titleOf(r).toLowerCase().includes(q) || r.answers.some(a => a.text.toLowerCase().includes(q) || (a.prompt || '').toLowerCase().includes(q))
+  }
+  function visibleSessions() { return sessionsIn(folder).filter(r => matches(r, filter.value.trim())) }
+  function answersInScope() {
+    const rs = session === ALL ? visibleSessions() : [records.get(session)].filter(Boolean)
+    const list = []
+    for (const r of rs) r.answers.forEach((a, i) => list.push({ ...a, sid: r.id, n: i + 1, record: r }))
+    return list.sort((a, b) => a.at - b.at)
+  }
+  const currentAnswer = () => answersInScope().find(x => keyOf(x) === current)
+
+  function button(parent, cls, lines, onclick) {
+    const b = document.createElement('button')
+    b.className = cls
+    for (const [c, text, dot] of lines) {
+      const d = document.createElement('div')
+      d.className = c
+      if (dot) { const s = document.createElement('span'); s.className = 'dot'; d.appendChild(s) }
+      d.appendChild(document.createTextNode(text))
+      parent.appendChild(b).appendChild(d)
+    }
+    b.onclick = onclick
+    return b
+  }
+
+  function render() {
+    // 고른 것이 사라졌으면 전체로 (기록을 다 읽은 뒤에만 판단한다)
+    if (order.every(id => records.has(id)) && !pendingFocus) {
+      if (folder !== ALL && !folders().some(f => f.key === folder)) folder = ALL
+      if (session !== ALL && !sessionsIn(folder).some(r => r.id === session)) session = ALL
+    }
+
+    // 폴더 아래에 세션을 펼치는 트리. 폴더를 누르면 그 폴더 전체를 보고 펼치며, 한 번 더 누르면 접는다.
+    const tl = $('treeList'); tl.innerHTML = ''
+    const q = filter.value.trim()
+    const fs = folders()
+    $('treeCount').textContent = `폴더 ${fs.length} · 세션 ${order.filter(id => records.has(id)).length}`
+    button(tl, 'all' + (folder === ALL ? ' on' : ''), [['s', '전체'], ['t', '모든 세션의 결과를 시간순으로']], () => {
+      folder = ALL; session = ALL; follow.checked = true; remember(); render()
+    })
+    let shownSessions = 0
+    for (const f of fs) {
+      const ss = sessionsIn(f.key).filter(r => matches(r, q))
+      if (q && ss.length === 0) continue
+      shownSessions += ss.length
+      const open = !!q || expanded.has(f.key)
+      const b = button(tl, `folder${open ? ' open' : ''}${folder === f.key && session === ALL ? ' on' : ''}`, [
+        ['s', baseName(f.root), f.live],
+        ['t', `세션 ${f.sessions} · 결과 ${f.answers} · ${when(f.updatedAt)}`],
+      ], () => {
+        if (folder === f.key && session === ALL && open) expanded.delete(f.key)
+        else expanded.add(f.key)
+        folder = f.key; session = ALL; follow.checked = true; remember(); render()
+      })
+      b.title = f.root
+      if (!open) continue
+      const group = document.createElement('div')
+      group.className = 'group'
+      tl.appendChild(group)
+      for (const r of ss) {
+        const state = r.endedAt ? '종료' : '진행 중'
+        const sb = button(group, `sess${session === r.id ? ' on' : ''}`, [
+          ['s2', titleOf(r), !r.endedAt],
+          ['t', `결과 ${r.answers.length} · ${when(r.updatedAt)} · ${state}`],
+        ], () => { folder = f.key; session = r.id; follow.checked = true; remember(); render() })
+        sb.title = `${titleOf(r)}\n${r.root}\n${r.id}`
+      }
+    }
+    if (q && shownSessions === 0) tl.insertAdjacentHTML('beforeend', '<div class="none">찾는 세션이 없습니다.</div>')
+
+    const list = answersInScope()
+    if (follow.checked || !list.some(a => keyOf(a) === current)) current = list.length ? keyOf(list[list.length - 1]) : null
+    const al = $('answerList'); al.innerHTML = ''
+    $('answerCount').textContent = list.length
+    const merged = session === ALL
+    for (const a of list.slice().reverse()) {
+      const k = keyOf(a)
+      const ab = button(al, k === current ? 'on' : '', [
+        ['t', merged ? `${when(a.at)} · ${titleOf(a.record)}` : `#${a.n} · ${when(a.at)}`],
+        ...(a.prompt ? [['q', `Q. ${a.prompt.replace(/\s+/g, ' ')}`]] : []),
+        ['s2', firstLine(a.text) || '(빈 응답)'],
+      ], () => { current = k; follow.checked = k === keyOf(list[list.length - 1]); render() })
+      if (a.prompt) ab.title = a.prompt
+    }
+    if (list.length === 0) al.insertAdjacentHTML('beforeend', '<div class="none">결과가 없습니다.</div>')
+
+    const a = list.find(x => keyOf(x) === current)
+    $('publish').disabled = !a
+    if (!a) {
+      $('meta').textContent = '대기 중'
+      $('body').innerHTML = '<p class="empty">아직 Claude 응답이 없습니다.</p>'
+      shown = null
+      return
+    }
+    $('meta').textContent = `${baseName(a.record.root)} · ${titleOf(a.record)} · #${a.n}/${a.record.answers.length} · ${when(a.at)}`
+    $('meta').title = a.record.root
+    if (shown === current) return
+    shown = current
+    const body = $('body')
+    body.innerHTML = DOMPurify.sanitize(marked.parse(a.text, { gfm: true }))
+    enhance(body, a)
+    if (a.prompt) {
+      const q = document.createElement('div')
+      q.className = 'query'
+      q.innerHTML = '<div class="ql">질의</div><div class="qt"></div>'
+      q.querySelector('.qt').textContent = a.prompt
+      body.prepend(q)
+    }
+    body.querySelectorAll('pre code:not(.language-mermaid)').forEach(el => hljs.highlightElement(el))
+    body.querySelectorAll('a[href]:not([href^="#"])').forEach(el => el.target = '_blank')
+    drawMermaid(body, current)
+    document.querySelector('main').scrollTop = 0
+  }
+
+  // ── Markdown 관례를 페이지 구성으로 바꾼다 ──────────────────────────────
+  //   # 제목 + 바로 다음 문단      → 머리말 (eyebrow · 제목 · lede)
+  //   ## 가 셋 이상               → 목차, ## 마다 섹션
+  //   > [!주의] 제목 / [!WARNING] → 칩을 단 판단 카드 (이어지면 한 묶음)
+  //   > [!DO] 제목 / [!DONT] 제목 → 두 칸 패널
+  //   표                          → 테두리 상자 (코드만 든 칸은 고정폭)
+  //   ```mermaid 바로 뒤 *기울임* 문단 → 도식 설명
+  const ALERTS = {
+    WARNING: ['warn', '주의'], CAUTION: ['warn', '위험'], IMPORTANT: ['accent', '중요'],
+    NOTE: ['muted', '참고'], TIP: ['ok', '팁'], DO: ['do', '할 일'], DONT: ['dont', '하지 않을 일'],
+  }
+  const TONES = {
+    warn: ['주의', '위험', '경고', '문제', '버그', '실패', '오류'],
+    ok: ['확인', '해결', '성공', '완료', '정상', '통과'],
+    amber: ['원인', '가설', '추정', '미확인', '보류'],
+    accent: ['중요', '결론', '핵심', '권장', '추천'],
+    do: ['할일', '할 일', '해야 할 일'],
+    dont: ['하지말것', '안 할 일', '하지 않을 일', '몰라도 되는 것'],
+  }
+  function toneOf(kind) {
+    const alert = ALERTS[kind.toUpperCase()]
+    if (alert) return alert
+    for (const [tone, words] of Object.entries(TONES)) if (words.includes(kind)) return [tone, kind]
+    return ['muted', kind]
+  }
+
+  function enhance(body, a) {
+    body.querySelectorAll('table').forEach(t => {
+      const box = document.createElement('div')
+      box.className = 'tbl'
+      t.replaceWith(box)
+      box.appendChild(t)
+      t.querySelectorAll('td').forEach(td => {
+        if (td.children.length === 1 && td.firstElementChild.tagName === 'CODE' && td.textContent.trim() === td.firstElementChild.textContent.trim()) td.classList.add('mono')
+      })
+    })
+    callouts(body)
+    group(body, '.finding', 'findings')
+    group(body, '.panel', 'split')
+    body.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+      const next = code.parentElement.nextElementSibling
+      if (next && next.tagName === 'P' && next.children.length === 1 && next.firstElementChild.tagName === 'EM'
+        && next.textContent.trim() === next.firstElementChild.textContent.trim()) next.classList.add('fig-cap-src')
+    })
+    head(body, a)
+    sections(body)
+  }
+
+  function callouts(body) {
+    for (const bq of [...body.querySelectorAll('blockquote')]) {
+      const p = bq.firstElementChild
+      if (!p || p.tagName !== 'P') continue
+      const m = /^\s*\[!([^\]\s][^\]]{0,15})\][ \t]*([^\n]*?)\s*(?:<br>\s*|\n|$)/.exec(p.innerHTML)
+      if (!m) continue
+      const [tone, label] = toneOf(m[1].trim())
+      const rest = p.innerHTML.slice(m[0].length).trim()
+      if (rest) p.innerHTML = rest; else p.remove()
+      const title = m[2].trim()
+      let card
+      if (tone === 'do' || tone === 'dont') {
+        card = document.createElement('div')
+        card.className = `panel ${tone}`
+        const h = document.createElement('h3')
+        h.innerHTML = title || label
+        card.append(h, ...bq.childNodes)
+      } else {
+        card = document.createElement('div')
+        card.className = 'finding'
+        const chip = document.createElement('span')
+        chip.className = `chip ${tone}`
+        chip.textContent = label
+        const fb = document.createElement('div')
+        fb.className = 'fbody'
+        if (title) { const h = document.createElement('h3'); h.className = 'ftitle'; h.innerHTML = title; fb.append(h) }
+        fb.append(...bq.childNodes)
+        card.append(chip, fb)
+      }
+      bq.replaceWith(card)
+    }
+  }
+
+  // 나란히 이어진 카드·패널을 한 묶음으로
+  function group(body, sel, cls) {
+    for (const el of [...body.querySelectorAll(sel)]) {
+      const prev = el.previousElementSibling
+      if (prev && prev.classList.contains(cls)) { prev.appendChild(el); continue }
+      const box = document.createElement('div')
+      box.className = cls
+      el.replaceWith(box)
+      box.appendChild(el)
+    }
+  }
+
+  function head(body, a) {
+    const first = body.firstElementChild
+    const h2s = [...body.children].filter(e => e.tagName === 'H2')
+    const hasTitle = first && first.tagName === 'H1'
+    if (!hasTitle && h2s.length < 3) return
+    const hd = document.createElement('header')
+    hd.className = 'doc-head'
+    const eb = document.createElement('div')
+    eb.className = 'eyebrow'
+    eb.textContent = `${baseName(a.record.root)} · #${a.n} · ${fullDate(a.at)}`
+    hd.append(eb)
+    if (hasTitle) {
+      const lede = first.nextElementSibling
+      hd.append(first)
+      if (lede && lede.tagName === 'P') { lede.classList.add('lede'); hd.append(lede) }
+    }
+    if (h2s.length >= 3) {
+      const nav = document.createElement('nav')
+      nav.className = 'toc'
+      nav.setAttribute('aria-label', '목차')
+      h2s.forEach((h, i) => {
+        const link = document.createElement('a')
+        link.href = `#sec-${i + 1}`
+        link.textContent = h.textContent
+        link.onclick = ev => { ev.preventDefault(); document.getElementById(`sec-${i + 1}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+        nav.append(link)
+      })
+      hd.append(nav)
+    }
+    body.prepend(hd)
+  }
+
+  function sections(body) {
+    let sec = null, n = 0
+    for (const el of [...body.children]) {
+      if (el.tagName === 'H2') {
+        sec = document.createElement('section')
+        sec.className = 'sec'
+        sec.id = `sec-${++n}`
+        el.replaceWith(sec)
+        sec.append(el)
+      } else if (sec) sec.append(el)
+    }
+  }
+
+  // ── ```mermaid 블록은 도식으로 그린다 ─────────────────────────────────
+  // mermaid 는 약 3MB 라 블록이 있는 응답을 볼 때만 받는다. 색은 페이지 토큰에서 읽는다.
+  let mermaidReady = null, mermaidSeq = 0
+  const isDark = () => document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches
+  // 지금 페이지 색(토큰)으로 mermaid 설정을 만든다
+  function mermaidConfig() {
+    const font = '"IBM Plex Sans KR", "Malgun Gothic", sans-serif'
+    return {
+      startOnLoad: false, securityLevel: 'strict', theme: 'base', fontFamily: font,
+      // 글자를 SVG text 로 두어야 PNG 로 복사할 수 있다 (foreignObject 는 캔버스를 오염시킨다)
+      htmlLabels: false, flowchart: { htmlLabels: false, curve: 'basis', padding: 12 },
+      sequence: { mirrorActors: false, messageFontWeight: 400 },
+      themeVariables: {
+        darkMode: isDark(), background: css('--paper'), fontFamily: font, fontSize: '13px',
+        primaryColor: css('--accent-soft'), primaryBorderColor: css('--accent'), primaryTextColor: css('--ink'),
+        secondaryColor: css('--amber-soft'), secondaryBorderColor: css('--amber'), secondaryTextColor: css('--ink'),
+        tertiaryColor: css('--soft'), tertiaryBorderColor: css('--rule'), tertiaryTextColor: css('--ink'),
+        mainBkg: css('--accent-soft'), nodeBorder: css('--accent'), lineColor: css('--muted'), textColor: css('--ink'),
+        titleColor: css('--ink'), clusterBkg: css('--soft'), clusterBorder: css('--rule'), edgeLabelBackground: css('--paper'),
+        actorBkg: css('--accent-soft'), actorBorder: css('--accent'), actorTextColor: css('--ink'), actorLineColor: css('--rule'),
+        signalColor: css('--ink'), signalTextColor: css('--ink'),
+        labelBoxBkgColor: css('--soft'), labelBoxBorderColor: css('--rule'), labelTextColor: css('--ink'), loopTextColor: css('--ink'),
+        noteBkgColor: css('--amber-soft'), noteBorderColor: css('--amber'), noteTextColor: css('--ink'),
+        activationBkgColor: css('--soft'), activationBorderColor: css('--muted'), sequenceNumberColor: css('--paper'),
+      },
+    }
+  }
+  function loadMermaid() {
+    if (!mermaidReady) mermaidReady = new Promise((ok, fail) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js'
+      s.onload = () => {
+        mermaid.initialize(mermaidConfig())
+        ok(mermaid)
+      }
+      s.onerror = () => { mermaidReady = null; fail(new Error('mermaid 를 불러오지 못했습니다')) }
+      document.head.appendChild(s)
+    })
+    return mermaidReady
+  }
+
+  // ⚠ 가 붙은 노드·메시지는 경고색으로 (CLAUDE.md: 문제 지점은 ⚠ 로 표시)
+  function markWarnings(svg) {
+    const warn = css('--warn'), warnSoft = css('--warn-soft')
+    svg.querySelectorAll('g.node, g.actor, rect.actor').forEach(g => {
+      if (!g.textContent.includes('⚠')) return
+      g.querySelectorAll('rect, polygon, path, circle, ellipse').forEach(s => s.setAttribute('style', `fill:${warnSoft};stroke:${warn};stroke-width:1.5px`))
+    })
+    svg.querySelectorAll('text, tspan').forEach(t => {
+      if (t.children.length === 0 && t.textContent.includes('⚠')) t.setAttribute('style', `fill:${warn};font-weight:600`)
+    })
+  }
+
+  // 그리지 못한 블록은 코드 그대로 두고 사유만 붙인다. 그리는 사이 다른 결과로 옮겨 가면 멈춘다.
+  function drawMermaid(body, token) {
+    const blocks = [...body.querySelectorAll('pre > code.language-mermaid')]
+    if (!blocks.length) return
+    const fail = (pre, msg) => {
+      const p = document.createElement('p')
+      p.className = 'mermaid-err'
+      p.textContent = `도식을 그리지 못했습니다 — ${msg}`
+      pre.after(p)
+    }
+    loadMermaid().then(async m => {
+      for (const code of blocks) {
+        if (shown !== token) return
+        const pre = code.parentElement
+        try {
+          await m.parse(code.textContent)
+          const { svg } = await m.render(`mmd-${++mermaidSeq}`, code.textContent)
+          if (shown !== token) return
+          const fig = document.createElement('figure')
+          fig.className = 'fig'
+          fig.dataset.src = code.textContent
+          fig.innerHTML = '<div class="fig-box"></div><div class="fig-bar"><button type="button" class="btn fig-copy">이미지 복사</button><span class="fig-status" aria-live="polite"></span></div>'
+          fig.querySelector('.fig-box').innerHTML = svg
+          const cap = pre.nextElementSibling
+          if (cap && cap.classList.contains('fig-cap-src')) {
+            const fc = document.createElement('figcaption')
+            fc.append(...cap.firstElementChild.childNodes)
+            fig.append(fc)
+            cap.remove()
+          }
+          pre.replaceWith(fig)
+          const el = fig.querySelector('svg')
+          markWarnings(el)
+          wireCopy(fig, el)
+        } catch (e) {
+          fail(pre, String(e && e.message || e).split('\n')[0])
+        }
+      }
+    }, e => blocks.forEach(code => fail(code.parentElement, e.message)))
+  }
+
+  // 인라인 SVG 는 우클릭 '이미지 복사'가 없으므로 PNG 로 만들어 클립보드에 넣는다.
+  const SCALE = 2
+  function toPng(svg) {
+    const vb = svg.viewBox.baseVal
+    const w = vb && vb.width ? vb.width : svg.getBoundingClientRect().width
+    const h = vb && vb.height ? vb.height : svg.getBoundingClientRect().height
+    const x = vb && vb.width ? vb.x : 0, y = vb && vb.width ? vb.y : 0
+    const padding = 16
+    const clone = svg.cloneNode(true)
+    clone.removeAttribute('style')
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    clone.setAttribute('viewBox', `${x - padding} ${y - padding} ${w + padding * 2} ${h + padding * 2}`)
+    clone.setAttribute('width', (w + padding * 2) * SCALE)
+    clone.setAttribute('height', (h + padding * 2) * SCALE)
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    bg.setAttribute('x', x - padding); bg.setAttribute('y', y - padding)
+    bg.setAttribute('width', w + padding * 2); bg.setAttribute('height', h + padding * 2)
+    bg.setAttribute('fill', css('--paper'))
+    clone.insertBefore(bg, clone.firstChild)
+    const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(clone))
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const c = document.createElement('canvas')
+        c.width = +clone.getAttribute('width')
+        c.height = +clone.getAttribute('height')
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+        c.toBlob(b => b ? resolve(b) : reject(new Error('PNG 변환 실패')), 'image/png')
+      }
+      img.onerror = () => reject(new Error('SVG 렌더링 실패'))
+      img.src = url
+    })
+  }
+  function showFallback(fig, blob) {
+    let box = fig.querySelector('.fig-fallback')
+    if (!box) {
+      box = document.createElement('div')
+      box.className = 'fig-fallback'
+      box.innerHTML = '<span class="fig-status">이 환경에서는 바로 복사할 수 없습니다. 아래 이미지를 마우스 오른쪽 버튼으로 눌러 "이미지 복사"를 고르세요.</span><img alt="">'
+      fig.querySelector('.fig-bar').after(box)
+    }
+    const img = box.querySelector('img')
+    if (img.src) URL.revokeObjectURL(img.src)
+    img.src = URL.createObjectURL(blob)
+  }
+  function wireCopy(fig, svg) {
+    const btn = fig.querySelector('.fig-copy'), status = fig.querySelector('.fig-bar .fig-status')
+    btn.onclick = async () => {
+      btn.disabled = true
+      status.textContent = ''
+      const png = toPng(svg)
+      try {
+        if (!navigator.clipboard || typeof ClipboardItem === 'undefined') throw new Error('no clipboard')
+        // Safari 는 사용자 동작 안에서 바로 write 해야 하므로 Promise 를 그대로 넘긴다
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })])
+        status.textContent = '복사했습니다. 문서에 붙여넣으세요.'
+      } catch {
+        try { showFallback(fig, await png); status.textContent = '' } catch (e) { status.textContent = `복사 실패: ${e.message}` }
+      } finally {
+        btn.disabled = false
+        setTimeout(() => { if (status.textContent.startsWith('복사했')) status.textContent = '' }, 2500)
+      }
+    }
+  }
+
+  // ── 위쪽 막대의 버튼 ───────────────────────────────────────────────
+  function flash(btn, text, label) {
+    btn.textContent = text
+    setTimeout(() => { btn.textContent = label }, 2200)
+  }
+  $('copy').onclick = async () => {
+    const a = currentAnswer()
+    if (!a) return
+    try { await navigator.clipboard.writeText(a.text); flash($('copy'), '복사됨', '원문 복사') } catch { flash($('copy'), '복사 실패', '원문 복사') }
+  }
+  // 페이지는 file:// 라 세션에 직접 말할 수 없다: 그 응답을 고르는 /md publish 명령줄을 복사해 준다.
+  $('publish').onclick = async () => {
+    const a = currentAnswer()
+    if (!a) return
+    const cmd = `/md publish ${a.sid.slice(0, 8)}#${a.n}`
+    try { await navigator.clipboard.writeText(cmd); flash($('publish'), '명령 복사됨 · Claude Code 입력창에 붙여넣기', '아티팩트로 발행') }
+    catch { window.prompt('Claude Code 입력창에 붙여넣으세요', cmd) }
+  }
+  // ── HTML 복사: 편집기에 붙여넣을 수 있는 서식 있는 HTML ──────────────────
+  // 편집기는 <style> 과 class 를 버리므로 계산된 스타일을 style 속성으로 박는다. 다크 화면에서도 라이트 색으로 내보낸다.
+  // 도식(SVG)은 대부분의 편집기가 받지 않아 PNG(data URL) 이미지로 바꾼다. 카드·패널은 어디서나 살아남는 표로 바꾼다.
+  const INHERITED = ['color', 'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'text-align', 'letter-spacing', 'text-transform', 'white-space', 'word-break']
+  const BOX_DEFAULTS = {
+    'background-color': 'rgba(0, 0, 0, 0)', 'padding-top': '0px', 'padding-right': '0px', 'padding-bottom': '0px', 'padding-left': '0px',
+    'margin-top': '0px', 'margin-bottom': '0px', 'border-radius': '0px', 'vertical-align': 'baseline', 'text-decoration-line': 'none',
+  }
+  function inlineStyle(el, parentCs) {
+    const cs = getComputedStyle(el)
+    const out = []
+    for (const p of INHERITED) {
+      const v = cs.getPropertyValue(p)
+      if (!parentCs || parentCs.getPropertyValue(p) !== v) out.push(`${p}:${v}`)
+    }
+    // 블록 요소는 편집기의 기본 여백(figure 들여쓰기, p 아래 빈 줄)이 끼지 않게 네 방향 여백을 늘 적는다
+    const block = /^(P|H[1-6]|UL|OL|PRE|BLOCKQUOTE|FIGURE|FIGCAPTION|TABLE|HR|DL|DD|HEADER|SECTION|DETAILS)$/.test(el.tagName)
+    if (block) out.push(`margin:${cs.marginTop} ${cs.marginRight} ${cs.marginBottom} ${cs.marginLeft}`)
+    for (const [p, def] of Object.entries(BOX_DEFAULTS)) {
+      if (block && p.startsWith('margin-')) continue
+      const v = cs.getPropertyValue(p)
+      if (v !== def) out.push(p === 'text-decoration-line' ? `text-decoration:${v}` : `${p}:${v}`)
+    }
+    for (const side of ['top', 'right', 'bottom', 'left']) {
+      const st = cs.getPropertyValue(`border-${side}-style`), w = cs.getPropertyValue(`border-${side}-width`)
+      if (st !== 'none' && w !== '0px') out.push(`border-${side}:${w} ${st} ${cs.getPropertyValue(`border-${side}-color`)}`)
+    }
+    if (cs.display === 'inline-block') out.push('display:inline-block')
+    if (el.tagName === 'TABLE') out.push('border-collapse:collapse', 'width:100%')
+    return out.join(';')
+  }
+  const blobToDataUrl = blob => new Promise((ok, fail) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = fail; r.readAsDataURL(blob) })
+
+  // 도식 하나를 지금 색(라이트)으로 PNG 이미지 태그로. 다크로 그려 둔 것은 원본 mermaid 로 다시 그린다.
+  async function figureImage(fig, redraw) {
+    let svg = fig.querySelector('.fig-box svg')
+    if (redraw && fig.dataset.src) {
+      const m = await loadMermaid()
+      const { svg: text } = await m.render(`mmd-x${++mermaidSeq}`, fig.dataset.src)
+      const holder = document.createElement('div')
+      holder.style.cssText = 'position:absolute;left:-99999px;top:0'
+      holder.innerHTML = text
+      document.body.append(holder)
+      svg = holder.querySelector('svg')
+      markWarnings(svg)
+      try { return await imgTag(svg) } finally { holder.remove() }
+    }
+    return imgTag(svg)
+  }
+  async function imgTag(svg) {
+    const vb = svg.viewBox.baseVal
+    const width = Math.round((vb && vb.width ? vb.width : svg.getBoundingClientRect().width) + 32)
+    const img = document.createElement('img')
+    img.src = await blobToDataUrl(await toPng(svg))
+    img.width = Math.min(width, 880)
+    img.alt = '도식'
+    img.setAttribute('style', `max-width:100%;height:auto;border:1px solid ${css('--rule')};border-radius:8px`)
+    return img
+  }
+
+  function cardTable(cells, gap) {
+    const t = document.createElement('table')
+    t.setAttribute('style', `width:100%;border-collapse:separate;border-spacing:${gap}px 0;margin-top:10px`)
+    const tr = t.insertRow()
+    for (const { node, style } of cells) {
+      const td = tr.insertCell()
+      td.setAttribute('style', `vertical-align:top;${style}`)
+      td.append(node)
+    }
+    return t
+  }
+
+  async function exportHtml() {
+    const body = $('body')
+    const root = document.documentElement
+    const wasDark = isDark()
+    const prevTheme = root.dataset.theme
+    // 1) 라이트 색으로 바꾸고 (코드 하이라이트 색도)
+    root.dataset.theme = 'light'
+    $('hljsLight').media = 'all'; $('hljsDark').media = 'not all'
+    try {
+      if (wasDark && typeof mermaid !== 'undefined') mermaid.initialize(mermaidConfig())
+      // 2) 도식 → 이미지 (복제 전에 원본에서 만든다)
+      const figs = [...body.querySelectorAll('figure.fig')]
+      const imgs = []
+      for (const f of figs) imgs.push(await figureImage(f, wasDark))
+      // 3) 원본과 복제본을 같은 순서로 걸으며 계산된 스타일을 박는다 (SVG 속은 건너뛴다)
+      const clone = body.cloneNode(true)
+      const pick = r => [...r.querySelectorAll('*')].filter(el => !el.closest('svg'))
+      const from = pick(body), to = pick(clone)
+      from.forEach((el, i) => {
+        const parent = el.parentElement === body ? getComputedStyle(body) : getComputedStyle(el.parentElement)
+        to[i].setAttribute('style', inlineStyle(el, parent))
+      })
+      // 4) 편집기에 맞게 다듬는다
+      clone.querySelectorAll('.query, .fig-bar, .fig-fallback, nav.toc, .mermaid-err, .empty').forEach(el => el.remove())
+      // 머리말·도식은 화면에서 grid gap 으로 띄우므로 여백으로 바꿔 둔다
+      clone.querySelectorAll('.doc-head > *:not(:last-child), figure.fig > *:not(:last-child)').forEach(el => { el.style.marginBottom = '12px' })
+      clone.querySelectorAll('figure.fig').forEach((f, i) => {
+        const box = f.querySelector('.fig-box')
+        if (box && imgs[i]) box.replaceWith(imgs[i])
+      })
+      clone.querySelectorAll('.finding').forEach(card => {
+        const [chip, fb] = card.children
+        const t = cardTable([
+          { node: chip, style: 'width:92px;padding:14px 0 14px 16px' },
+          { node: fb, style: 'padding:14px 16px 14px 8px' },
+        ], 0)
+        t.setAttribute('style', `${t.getAttribute('style')};background:${css('--paper')};border:1px solid ${css('--rule')};border-radius:8px`)
+        card.replaceWith(t)
+      })
+      clone.querySelectorAll('.split').forEach(split => {
+        const panels = [...split.children]
+        split.replaceWith(cardTable(panels.map(p => ({ node: p, style: `width:${Math.floor(100 / panels.length)}%` })), 8))
+      })
+      clone.querySelectorAll('[class], [id]').forEach(el => { el.removeAttribute('class'); el.removeAttribute('id') })
+      clone.querySelectorAll('a[href^="#"]').forEach(a => a.removeAttribute('href'))
+      const bs = getComputedStyle(body)
+      const wrapStyle = `max-width:920px;font-family:${bs.fontFamily};font-size:${bs.fontSize};line-height:${bs.lineHeight};color:${bs.color}`
+      return `<div style='${wrapStyle.replace(/'/g, '"')}'>\n${clone.innerHTML}\n</div>`
+    } finally {
+      // 5) 화면 색을 되돌린다
+      if (prevTheme === undefined) delete root.dataset.theme; else root.dataset.theme = prevTheme
+      $('hljsLight').media = '(prefers-color-scheme: light)'; $('hljsDark').media = '(prefers-color-scheme: dark)'
+      if (wasDark && typeof mermaid !== 'undefined') mermaid.initialize(mermaidConfig())
+    }
+  }
+
+  // 서식 있는 HTML(text/html) 과 그 소스(text/plain) 를 함께 넣는다. 막히면 선택 영역 복사로.
+  function copyRich(html) {
+    const box = document.createElement('div')
+    box.contentEditable = 'true'
+    box.style.cssText = 'position:fixed;left:-99999px;top:0;opacity:0'
+    box.innerHTML = html
+    document.body.append(box)
+    const range = document.createRange()
+    range.selectNodeContents(box)
+    const sel = getSelection()
+    sel.removeAllRanges(); sel.addRange(range)
+    const ok = document.execCommand('copy')
+    sel.removeAllRanges(); box.remove()
+    return ok
+  }
+  $('copyHtml').onclick = async () => {
+    const btn = $('copyHtml')
+    if (!currentAnswer()) return
+    btn.disabled = true
+    btn.textContent = '만드는 중…'
+    try {
+      const html = await exportHtml()
+      try {
+        if (!navigator.clipboard || typeof ClipboardItem === 'undefined') throw new Error('no clipboard')
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([html], { type: 'text/plain' }),
+        })])
+      } catch {
+        if (!copyRich(html)) throw new Error('클립보드를 쓸 수 없습니다')
+      }
+      btn.disabled = false
+      flash(btn, '복사됨 · 편집기에 붙여넣기', 'HTML 복사')
+    } catch (e) {
+      btn.disabled = false
+      flash(btn, `복사 실패: ${e.message}`, 'HTML 복사')
+    }
+  }
+
+  follow.onchange = () => { if (follow.checked) render() }
+  filter.oninput = () => render()
+
+  // file:// 에서도 되도록 <script> 를 다시 붙여 읽는다
+  function load(src) {
+    const s = document.createElement('script')
+    s.src = src
+    s.onload = s.onerror = () => s.remove()
+    document.head.appendChild(s)
+  }
+  let dirty = false
+  window.__mdhubIndex = data => {
+    order = data.sessions.map(s => s.id)
+    for (const s of data.sessions) {
+      wanted.set(s.id, s.mtime)
+      if (loaded.get(s.id) !== s.mtime) load(`sessions/${encodeURIComponent(s.id)}.js?${s.mtime}`)
+    }
+    dirty = true
+  }
+  window.__mdhub = r => {
+    if (!r || !r.id) return
+    records.set(r.id, r)
+    loaded.set(r.id, wanted.get(r.id))
+    dirty = true
+  }
+  window.__mdhubFocus = f => {
+    if (!f || f.at === lastFocusAt) return
+    const first = lastFocusAt === null
+    lastFocusAt = f.at
+    // 페이지를 막 열었을 때는 방금 친 /md 만 따른다
+    if (first && Date.now() - f.at > 15000) return
+    const r = records.get(f.id)
+    folder = r ? folderKey(r.root) : ALL
+    if (r) expanded.add(folder)
+    session = f.id
+    follow.checked = true
+    pendingFocus = r ? null : f.id
+    remember()
+    dirty = true
+  }
+  function poll() {
+    load('index.js?' + Date.now())
+    load('focus.js?' + Date.now())
+  }
+  setInterval(() => {
+    if (!dirty) return
+    dirty = false
+    if (pendingFocus && records.has(pendingFocus)) { folder = folderKey(records.get(pendingFocus).root); expanded.add(folder); pendingFocus = null; remember() }
+    render()
+  }, 300)
+  poll()
+  setInterval(poll, 1500)
+</script>
+</body>
+</html>

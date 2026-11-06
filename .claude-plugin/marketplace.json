@@ -1,0 +1,5 @@
+{
+  "name": "markdown-view",
+  "owner": { "name": "roadrun316" },
+  "plugins": [{ "name": "markdown-view", "source": "./" }]
+}
