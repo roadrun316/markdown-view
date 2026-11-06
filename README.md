@@ -29,9 +29,13 @@ claude plugin install markdown-view --marketplace roadrun316/markdown-view
 
 이 저장소는 비공개입니다. 이 저장소를 읽을 수 있는 GitHub 계정이어야 하고, 그 PC 에 github.com 용 git 자격 증명이 이미 있어야 합니다 (SSH 키, 또는 `gh auth login` 뒤 `gh auth setup-git`). 설치 중에 로그인을 묻지 않습니다.
 
-## 보고서 관례 (선택)
+## 보고서 관례 (자동)
 
-`/md` 미리보기는 특정 Markdown 관례(`# 제목` + 결론 문단, `> [!주의] 제목` 콜아웃, `> [!DO]`/`> [!DONT]` 패널, 도식 뒤 `*설명*` 등)를 카드와 패널로 그립니다. Claude 가 이 관례로 쓰게 하려면 [`docs/claude-md-snippet.md`](docs/claude-md-snippet.md) 내용을 `~/.claude/CLAUDE.md` 끝에 붙입니다.
+`/md` 미리보기는 특정 Markdown 관례(`# 제목` + 결론 문단, `> [!주의] 제목` 콜아웃, `> [!DO]`/`> [!DONT]` 패널, 도식 뒤 `*설명*` 등)를 카드와 패널로 그립니다. 플러그인이 설치되면 이 관례([`docs/conventions.md`](docs/conventions.md))를 대화형 세션의 시스템 프롬프트에 덧붙이므로, `CLAUDE.md` 를 고치지 않아도 Claude 가 이 관례로 씁니다.
+
+- 끄기: `/config` 에서 markdown-view 의 `보고서 관례 넣기` 를 끕니다.
+- `~/.claude/CLAUDE.md` 에 이미 `/md 뷰어 관례` 가 적혀 있으면 두 번 넣지 않고 그쪽을 따릅니다.
+- `claude -p` 같은 화면 없는 실행에는 넣지 않습니다.
 
 ## 참고
 

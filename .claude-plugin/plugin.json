@@ -1,6 +1,14 @@
 {
   "name": "markdown-view",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Claude의 응답을 Markdown으로 렌더링해 패널에 보여준다 (/md)",
-  "types": "./types/index.d.ts"
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "conventions": {
+      "type": "boolean",
+      "title": "보고서 관례 넣기",
+      "description": "/md 뷰어가 카드·패널·도식으로 그리는 Markdown 관례(docs/conventions.md)를 Claude 의 시스템 프롬프트에 덧붙인다",
+      "default": true
+    }
+  }
 }

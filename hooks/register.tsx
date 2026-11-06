@@ -204,7 +204,39 @@ const publish = async ($: EngineInterface, t: Target) => {
   return { tag, md: `${base}.md`, isUpdate: prevUrl !== '' }
 }
 
-export const register: Register = on => {
+// /md 뷰어 보고서 관례 (docs/conventions.md) 를 시스템 프롬프트에 덧붙인다.
+// ~/.claude/CLAUDE.md 에 이미 같은 관례가 있으면 두 번 넣지 않는다.
+const CONVENTIONS_ID = 'markdown-view:conventions'
+const CONVENTIONS_MARK = '/md 뷰어 관례'
+const readConventions = async ($: EngineInterface): Promise<string | null> => {
+  const home = (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME')) ?? '.'
+  const own = await $.fs.read(`${home.replace(/\\/g, '/')}/.claude/CLAUDE.md`).then(t => t as string).catch(() => '')
+  if (own.includes(CONVENTIONS_MARK)) return null
+  const text = (await $.fs.read(`${$.plugin.root}/docs/conventions.md`) as string).trim()
+  return [
+    '# 보고서 관례 (markdown-view 플러그인)',
+    '',
+    '이 PC 에는 Claude 응답을 그려 주는 `/md` 뷰어(markdown-view 플러그인)가 설치되어 있다. 응답을 쓸 때 아래 관례를 따른다.',
+    '',
+    text,
+  ].join('\n')
+}
+
+export const register: Register = (on, options) => {
+  if (options.conventions !== false) {
+    // 모드가 다시 읽힐 때마다 한 번만 읽는다
+    let conventions: Promise<string | null> | null = null
+    on('prompt.compose', async ($, e, next) => {
+      const composed = await next(e)
+      // 화면이 없는 실행(claude -p)은 /md 로 볼 일이 없다
+      if (e.surfaces.length === 0) return composed
+      conventions ??= readConventions($).catch(() => null)
+      const text = await conventions
+      if (text === null || composed.sections.some(s => s.id === CONVENTIONS_ID)) return composed
+      return { sections: [...composed.sections, { id: CONVENTIONS_ID, text, scope: 'session' as const }] }
+    })
+  }
+
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'md',
