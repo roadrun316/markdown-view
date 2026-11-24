@@ -1,6 +1,6 @@
 {
   "name": "markdown-view",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Claude의 응답을 Markdown으로 렌더링해 패널에 보여준다 (/md)",
   "types": "./types/index.d.ts",
   "userConfig": {
