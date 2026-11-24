@@ -28,7 +28,16 @@ claude plugin install markdown-view --marketplace roadrun316/markdown-view
 
 데스크톱 앱(`/plugin` 이 안 되는 곳): 프롬프트 상자 옆 + → Plugins → Add marketplace 에 `roadrun316/markdown-view` → Add plugin.
 
-이 저장소는 비공개입니다. 이 저장소를 읽을 수 있는 GitHub 계정이어야 하고, 그 PC 에 github.com 용 git 자격 증명이 이미 있어야 합니다 (SSH 키, 또는 `gh auth login` 뒤 `gh auth setup-git`). 설치 중에 로그인을 묻지 않습니다.
+공개 저장소라 GitHub 로그인 없이 설치됩니다.
+
+github.com 에 접속할 수 없는 PC 에서는 이 저장소를 zip 으로 받아 지우지 않을 곳에 풀고, 그 폴더를 마켓플레이스로 추가합니다:
+
+```sh
+claude plugin marketplace add "C:\Users\<사용자>\.claude\mods\markdown-view"
+claude plugin install markdown-view@markdown-view
+```
+
+고친 판으로 바꿀 때는 같은 폴더에 덮어쓴 뒤 `claude plugin marketplace update markdown-view` 를 실행합니다.
 
 ## 보고서 관례 (자동)
 
