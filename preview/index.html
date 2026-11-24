@@ -70,6 +70,15 @@
   .none { padding: 12px 14px; font-size: 12px; color: var(--muted); }
   #answerList .q { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #answerList .q + .s2 { color: var(--muted); font-size: 12px; }
+  /* 삭제(숨김): 줄에 마우스를 올리면 오른쪽 위에 × */
+  .list button { position: relative; }
+  .list button.sess, #answerList button { padding-right: 28px; }
+  .list .del { position: absolute; right: 6px; top: 6px; display: none; width: 20px; height: 20px; line-height: 19px; text-align: center; border-radius: 4px; font-size: 15px; color: var(--muted); }
+  .list button:hover .del { display: block; }
+  .list .del:hover { background: var(--warn-soft); color: var(--warn); }
+  #hiddenBar { display: flex; align-items: center; gap: 8px; padding: 4px 14px 6px; font-size: 11.5px; color: var(--muted); }
+  #hiddenBar[hidden] { display: none; }
+  #hiddenBar button { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
 
   /* 본문 */
   main { flex: 1; overflow-y: auto; min-width: 0; }
@@ -183,6 +192,7 @@
 <section class="col" id="tree">
   <h1>폴더 · 세션<span class="n" id="treeCount"></span></h1>
   <input type="search" id="sessionFilter" placeholder="세션 제목·응답 검색">
+  <div id="hiddenBar" hidden><span id="hiddenCount"></span><button type="button" id="unhide" title="이 브라우저에서 지운 응답·세션을 모두 다시 보입니다">되돌리기</button></div>
   <div class="list" id="treeList"></div>
 </section>
 <section class="col" id="answers">
@@ -196,6 +206,7 @@
       <button id="publish" class="btn" type="button" title="이 응답을 Artifact 페이지로 발행하는 /md publish 명령을 복사합니다. 아무 Claude Code 세션의 입력창에 붙여넣으세요.">아티팩트로 발행</button>
       <button id="copyHtml" class="btn" type="button" title="서식을 살린 HTML 로 복사합니다. Confluence·Notion·메일·Word 같은 편집기에 붙이면 표·카드·도식(이미지)이 그대로 들어가고, 코드 편집기에 붙이면 HTML 소스가 들어갑니다.">HTML 복사</button>
       <button id="copy" class="btn" type="button">원문 복사</button>
+      <button id="del" class="btn" type="button" title="이 응답을 목록에서 지웁니다. 이 브라우저에서만 숨기며 기록 파일과 /md pane 에는 남습니다. 왼쪽 '되돌리기'로 다시 보입니다.">삭제</button>
       <label><input type="checkbox" id="follow" checked> 최신 따라가기</label>
     </span>
   </div>
@@ -228,20 +239,42 @@
   const fullDate = at => { const d = new Date(at); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` }
   const firstLine = text => (text.split('\n').find(l => l.trim()) || '').replace(/^[#>\-*\s`|]+/, '').replace(/^\[![^\]]+\]\s*/, '').slice(0, 120)
   const titleOf = r => r.label || '(제목 없음)'
-  const keyOf = a => `${a.sid}:${a.turnId}:${a.at}`
+  const ansKey = (sid, a) => `${sid}:${a.turnId}:${a.at}`
+  const keyOf = a => ansKey(a.sid, a)
+
+  // 삭제 = 이 브라우저에서 숨김 (file:// 페이지는 기록 파일을 지울 수 없다)
+  //   answers:  지운 응답의 키
+  //   sessions: 세션 id -> 지운 시각. 그 시각까지의 응답을 숨기고, 뒤에 새 응답이 오면 그것만 보인다.
+  const hidden = (() => {
+    try {
+      const h = JSON.parse(localStorage.getItem('mdhub.hidden') || '{}')
+      return { answers: new Set(h.answers || []), sessions: new Map(Object.entries(h.sessions || {})) }
+    } catch { return { answers: new Set(), sessions: new Map() } }
+  })()
+  const saveHidden = () => {
+    try { localStorage.setItem('mdhub.hidden', JSON.stringify({ answers: [...hidden.answers], sessions: Object.fromEntries(hidden.sessions) })) } catch {}
+  }
+  const answerHidden = (sid, a) => hidden.answers.has(ansKey(sid, a)) || (hidden.sessions.has(sid) && hidden.sessions.get(sid) >= a.at)
+  // 숨기지 않은 응답 (n 은 기록 안의 원래 번호: /md publish 가 이 번호를 쓴다)
+  function shownAnswers(r) {
+    const out = []
+    r.answers.forEach((a, i) => { if (!answerHidden(r.id, a)) out.push({ ...a, sid: r.id, n: i + 1, record: r }) })
+    return out
+  }
+  const sessionHidden = r => hidden.sessions.has(r.id) && shownAnswers(r).length === 0
   const remember = () => { try { localStorage.setItem('mdhub.sel', JSON.stringify({ folder, session, expanded: [...expanded] })) } catch {} }
   const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
   // 세션 목록 순서대로 기록을 돌려준다
   function sessionsIn(fk) {
-    return order.map(id => records.get(id)).filter(r => r && (fk === ALL || folderKey(r.root) === fk))
+    return order.map(id => records.get(id)).filter(r => r && !sessionHidden(r) && (fk === ALL || folderKey(r.root) === fk))
   }
   function folders() {
     const map = new Map()
     for (const r of sessionsIn(ALL)) {
       const k = folderKey(r.root)
       const f = map.get(k) || { key: k, root: r.root, sessions: 0, answers: 0, updatedAt: 0, live: false }
-      f.sessions++; f.answers += r.answers.length
+      f.sessions++; f.answers += shownAnswers(r).length
       f.updatedAt = Math.max(f.updatedAt, r.updatedAt); f.live = f.live || !r.endedAt
       map.set(k, f)
     }
@@ -250,14 +283,12 @@
   function matches(r, q) {
     if (!q) return true
     q = q.toLowerCase()
-    return titleOf(r).toLowerCase().includes(q) || r.answers.some(a => a.text.toLowerCase().includes(q) || (a.prompt || '').toLowerCase().includes(q))
+    return titleOf(r).toLowerCase().includes(q) || shownAnswers(r).some(a => a.text.toLowerCase().includes(q) || (a.prompt || '').toLowerCase().includes(q))
   }
   function visibleSessions() { return sessionsIn(folder).filter(r => matches(r, filter.value.trim())) }
   function answersInScope() {
     const rs = session === ALL ? visibleSessions() : [records.get(session)].filter(Boolean)
-    const list = []
-    for (const r of rs) r.answers.forEach((a, i) => list.push({ ...a, sid: r.id, n: i + 1, record: r }))
-    return list.sort((a, b) => a.at - b.at)
+    return rs.flatMap(shownAnswers).sort((a, b) => a.at - b.at)
   }
   const currentAnswer = () => answersInScope().find(x => keyOf(x) === current)
 
@@ -275,18 +306,59 @@
     return b
   }
 
+  // 줄 오른쪽 위의 × (줄 자체의 클릭으로 번지지 않게 막는다)
+  function addDel(b, title, onDel) {
+    const x = document.createElement('span')
+    x.className = 'del'
+    x.textContent = '×'
+    x.title = title
+    x.onclick = ev => { ev.stopPropagation(); onDel() }
+    b.appendChild(x)
+  }
+  function hideAnswer(a) {
+    const list = answersInScope()
+    const i = list.findIndex(x => keyOf(x) === keyOf(a))
+    hidden.answers.add(keyOf(a)); saveHidden()
+    if (keyOf(a) === current) {
+      // 보던 응답을 지우면 바로 아래(더 오래된) 것, 없으면 위의 것으로
+      const next = list[i - 1] || list[i + 1]
+      const after = answersInScope()
+      current = next ? keyOf(next) : null
+      follow.checked = !next || keyOf(next) === keyOf(after[after.length - 1])
+    }
+    render()
+  }
+  function hideSession(r) {
+    const n = shownAnswers(r).length
+    if (!confirm(`"${titleOf(r)}" 세션의 결과 ${n}개를 목록에서 지울까요?\n\n이 브라우저에서만 숨기며 기록 파일은 남습니다. 왼쪽 '되돌리기'로 다시 볼 수 있습니다.`)) return
+    hidden.sessions.set(r.id, Date.now()); saveHidden()
+    if (session === r.id) { session = ALL; remember() }
+    render()
+  }
+
   function render() {
     // 고른 것이 사라졌으면 전체로 (기록을 다 읽은 뒤에만 판단한다)
     if (order.every(id => records.has(id)) && !pendingFocus) {
       if (folder !== ALL && !folders().some(f => f.key === folder)) folder = ALL
       if (session !== ALL && !sessionsIn(folder).some(r => r.id === session)) session = ALL
+      // 허브 목록에서 빠진(30일 지난) 세션의 숨김 기록은 버린다 (index.js 를 읽기 전에는 판단하지 않는다)
+      const known = order.length ? new Set(order) : null
+      let pruned = false
+      if (known) for (const k of [...hidden.answers]) if (!known.has(k.slice(0, k.indexOf(':')))) { hidden.answers.delete(k); pruned = true }
+      if (known) for (const id of [...hidden.sessions.keys()]) if (!known.has(id)) { hidden.sessions.delete(id); pruned = true }
+      if (pruned) saveHidden()
     }
+    const hc = []
+    if (hidden.answers.size) hc.push(`응답 ${hidden.answers.size}`)
+    if (hidden.sessions.size) hc.push(`세션 ${hidden.sessions.size}`)
+    $('hiddenBar').hidden = hc.length === 0
+    $('hiddenCount').textContent = `지운 항목: ${hc.join(' · ')}`
 
     // 폴더 아래에 세션을 펼치는 트리. 폴더를 누르면 그 폴더 전체를 보고 펼치며, 한 번 더 누르면 접는다.
     const tl = $('treeList'); tl.innerHTML = ''
     const q = filter.value.trim()
     const fs = folders()
-    $('treeCount').textContent = `폴더 ${fs.length} · 세션 ${order.filter(id => records.has(id)).length}`
+    $('treeCount').textContent = `폴더 ${fs.length} · 세션 ${sessionsIn(ALL).length}`
     button(tl, 'all' + (folder === ALL ? ' on' : ''), [['s', '전체'], ['t', '모든 세션의 결과를 시간순으로']], () => {
       folder = ALL; session = ALL; follow.checked = true; remember(); render()
     })
@@ -313,9 +385,10 @@
         const state = r.endedAt ? '종료' : '진행 중'
         const sb = button(group, `sess${session === r.id ? ' on' : ''}`, [
           ['s2', titleOf(r), !r.endedAt],
-          ['t', `결과 ${r.answers.length} · ${when(r.updatedAt)} · ${state}`],
+          ['t', `결과 ${shownAnswers(r).length} · ${when(r.updatedAt)} · ${state}`],
         ], () => { folder = f.key; session = r.id; follow.checked = true; remember(); render() })
         sb.title = `${titleOf(r)}\n${r.root}\n${r.id}`
+        addDel(sb, '이 세션의 결과를 목록에서 지웁니다 (이 브라우저에서만)', () => hideSession(r))
       }
     }
     if (q && shownSessions === 0) tl.insertAdjacentHTML('beforeend', '<div class="none">찾는 세션이 없습니다.</div>')
@@ -333,11 +406,13 @@
         ['s2', firstLine(a.text) || '(빈 응답)'],
       ], () => { current = k; follow.checked = k === keyOf(list[list.length - 1]); render() })
       if (a.prompt) ab.title = a.prompt
+      addDel(ab, '이 응답을 목록에서 지웁니다 (이 브라우저에서만)', () => hideAnswer(a))
     }
     if (list.length === 0) al.insertAdjacentHTML('beforeend', '<div class="none">결과가 없습니다.</div>')
 
     const a = list.find(x => keyOf(x) === current)
     $('publish').disabled = !a
+    $('del').disabled = !a
     if (!a) {
       $('meta').textContent = '대기 중'
       $('body').innerHTML = '<p class="empty">아직 Claude 응답이 없습니다.</p>'
@@ -671,6 +746,11 @@
     if (!a) return
     try { await navigator.clipboard.writeText(a.text); flash($('copy'), '복사됨', '원문 복사') } catch { flash($('copy'), '복사 실패', '원문 복사') }
   }
+  $('del').onclick = () => { const a = currentAnswer(); if (a) hideAnswer(a) }
+  $('unhide').onclick = () => {
+    if (!(hidden.answers.size + hidden.sessions.size) || !confirm('지운 응답·세션을 모두 다시 보일까요?')) return
+    hidden.answers.clear(); hidden.sessions.clear(); saveHidden(); render()
+  }
   // 페이지는 file:// 라 세션에 직접 말할 수 없다: 그 응답을 고르는 /md publish 명령줄을 복사해 준다.
   $('publish').onclick = async () => {
     const a = currentAnswer()
@@ -877,6 +957,8 @@
     lastFocusAt = f.at
     // 페이지를 막 열었을 때는 방금 친 /md 만 따른다
     if (first && Date.now() - f.at > 15000) return
+    // 지운 세션에서 /md 를 치면 그 세션을 다시 보인다
+    if (hidden.sessions.delete(f.id)) saveHidden()
     const r = records.get(f.id)
     folder = r ? folderKey(r.root) : ALL
     if (r) expanded.add(folder)
